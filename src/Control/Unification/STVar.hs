@@ -3,6 +3,7 @@
            , MultiParamTypeClasses
            , UndecidableInstances
            , FlexibleInstances
+           , KindSignatures
            #-}
 
 {-# OPTIONS_GHC -Wall -fwarn-tabs #-}
@@ -40,16 +41,16 @@ import Control.Unification.Types
 -- | Unification variables implemented by 'STRef's. In addition to
 -- the @STRef@ for the term itself, we also track the variable's
 -- ID (to support visited-sets).
-data STVar s a =
+data STVar s t =
     STVar
         {-# UNPACK #-} !Int
-        {-# UNPACK #-} !(STRef s (Maybe a))
+        {-# UNPACK #-} !(STRef s (Maybe (MutTerm (STVar s t) t)))
 -- BUG: can we actually unpack STRef?
 
-instance Show (STVar s a) where
+instance Show (STVar s t) where
     show (STVar i _) = "STVar " ++ show i
 
-instance Variable (STVar s) where
+instance Variable (STVar s t) where
     eqVar (STVar i _) (STVar j _) = i == j
     
     getVarID  (STVar i _) = i
@@ -65,32 +66,30 @@ instance Variable (STVar s) where
 -- to do this manually instead of using ReaderT?
 --
 -- | A monad for handling 'STVar' bindings.
-newtype STBinding s a = STB { unSTB :: ReaderT (STRef s Int) (ST s) a }
-
+newtype STBinding s (t :: * -> *) a = STB { unSTB :: ReaderT (STRef s Int) (ST s) a }
 
 -- | Run the 'ST' ranked binding monad. N.B., because 'STVar' are
 -- rank-2 quantified, this guarantees that the return value has no
 -- such references. However, in order to remove the references from
 -- terms, you'll need to explicitly apply the bindings and ground
 -- the term.
-runSTBinding :: (forall s. STBinding s a) -> a
+runSTBinding :: (forall s. STBinding s t a) -> a
 runSTBinding stb =
     runST (newSTRef minBound >>= runReaderT (unSTB stb))
-
 
 -- For portability reasons, we're intentionally avoiding
 -- -XDeriveFunctor, -XGeneralizedNewtypeDeriving, and the like.
 
-instance Functor (STBinding s) where
+instance Functor (STBinding s t) where
     fmap f = STB . fmap f . unSTB
 
-instance Applicative (STBinding s) where
+instance Applicative (STBinding s t) where
     pure   = return
     (<*>)  = ap
     (*>)   = (>>)
     x <* y = x >>= \a -> y >> return a
 
-instance Monad (STBinding s) where
+instance Monad (STBinding s t) where
     return    = STB . return
     stb >>= f = STB (unSTB stb >>= unSTB . f)
 
@@ -99,8 +98,8 @@ instance Monad (STBinding s) where
 
 _newSTVar
     :: String
-    -> Maybe (MutTerm (STVar s) t)
-    -> STBinding s (STVar s (MutTerm (STVar s) t))
+    -> Maybe (MutTerm (STVar s t) t)
+    -> STBinding s t (STVar s t)
 _newSTVar fun mb = STB $ do
     nr <- ask
     lift $ do
@@ -111,7 +110,7 @@ _newSTVar fun mb = STB $ do
                 writeSTRef nr $! n+1
                 STVar n <$> newSTRef mb
 
-instance (Unifiable t) => BindingMonad (STVar s) t (STBinding s) where
+instance Unifiable t => BindingMonad (STVar s t) t (STBinding s t) where
 
     lookupVar (STVar _ p) = STB . lift $ readSTRef p
     

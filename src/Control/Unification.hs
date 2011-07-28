@@ -115,7 +115,7 @@ fullprune t0 =
 -- bound or not. This allows detecting many cases where multiple
 -- variables point to the same term, thereby allowing us to avoid
 -- re-unifying the term they point to.
-semiprune :: (BindingMonad v t m) => MutTerm v t -> m (MutTerm v t)
+semiprune :: BindingMonad v t m => MutTerm v t -> m (MutTerm v t)
 semiprune =
     \t0 ->
         case t0 of
@@ -140,7 +140,7 @@ semiprune =
 -- Since occurs checks only make sense when we're about to bind the
 -- variable to the term, we do not bother checking for the possibility
 -- of the variable occuring bound in the term.
-occursIn :: (BindingMonad v t m) => v (MutTerm v t) -> MutTerm v t -> m Bool
+occursIn :: BindingMonad v t m => v -> MutTerm v t -> m Bool
 occursIn v t0 = do
     t <- fullprune t0
     case t of
@@ -157,7 +157,7 @@ seenAs
         , MonadTrans e
         , MonadError (UnificationFailure v t) (e m)
         )
-    => v (MutTerm v t) -- ^
+    => v -- ^
     -> MutTerm v t     -- ^
     -> StateT (IM.IntMap (MutTerm v t)) (e m) ()
 seenAs v t = do
@@ -182,7 +182,7 @@ seenAs v t = do
 -- | Walk a term and determine what variables are still free. N.B.,
 -- this function does not detect cyclic terms (i.e., throw errors),
 -- but it will return the correct answer for them in finite time.
-getFreeVars :: (BindingMonad v t m) => MutTerm v t -> m [v (MutTerm v t)]
+getFreeVars :: BindingMonad v t m => MutTerm v t -> m [v]
 getFreeVars =
     \t -> IM.elems <$> evalStateT (loop t) IS.empty
     where

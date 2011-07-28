@@ -73,23 +73,22 @@ instance (Functor m, Monad m) => Applicative (IntRBindingT t m) where
     x  *> y = IRBT (unIRBT x  *> unIRBT y)
     x <*  y = IRBT (unIRBT x <*  unIRBT y)
 
-instance (Monad m) => Monad (IntRBindingT t m) where
+instance Monad m => Monad (IntRBindingT t m) where
     return  = IRBT . return
     m >>= f = IRBT (unIRBT m >>= unIRBT . f)
 
 instance MonadTrans (IntRBindingT t) where
     lift = IRBT . lift
 
--- BUG: can't reduce dependency to Alternative because of StateT's instance.
 instance (Functor m, MonadPlus m) => Alternative (IntRBindingT t m) where
     empty   = IRBT empty
     x <|> y = IRBT (unIRBT x <|> unIRBT y)
 
-instance (MonadPlus m) => MonadPlus (IntRBindingT t m) where
+instance MonadPlus m => MonadPlus (IntRBindingT t m) where
     mzero       = IRBT mzero
     mplus ml mr = IRBT (mplus (unIRBT ml) (unIRBT mr))
 
-instance (Monad m) => MonadState (IntRBindingState t) (IntRBindingT t m) where
+instance Monad m => MonadState (IntRBindingState t) (IntRBindingT t m) where
     get = IRBT get
     put = IRBT . put
 
@@ -97,7 +96,7 @@ instance (Monad m) => MonadState (IntRBindingState t) (IntRBindingT t m) where
 -- provided that logict is compiled against the same mtl/monads-fd
 -- we're getting StateT from. Otherwise we'll get a bunch of warnings
 -- here.
-instance (MonadLogic m) => MonadLogic (IntRBindingT t m) where
+instance MonadLogic m => MonadLogic (IntRBindingT t m) where
     msplit (IRBT m) = IRBT (coerce `liftM` msplit m)
         where
         coerce Nothing        = Nothing

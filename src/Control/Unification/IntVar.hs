@@ -54,13 +54,13 @@ import Control.Unification.Types
 --
 -- N.B., because this implementation is pure, we can use it for
 -- both ranked and unranked monads.
-newtype IntVar t = IntVar Int
+newtype IntVar = IntVar Int
     deriving (Show)
 
 {-
 -- BUG: This part works, but we'd want to change Show IntBindingState too.
 
-instance Show (IntVar t) where
+instance Show IntVar where
     show (IntVar i) = "IntVar " ++ show (boundedInt2Word i)
 
 -- | Convert an integer to a word, via the continuous mapping that
@@ -106,7 +106,7 @@ newtype IntBindingT t m a = IBT { unIBT :: StateT (IntBindingState t) m a }
 -- For portability reasons, we're intentionally avoiding
 -- -XDeriveFunctor, -XGeneralizedNewtypeDeriving, and the like.
 
-instance (Functor m) => Functor (IntBindingT t m) where
+instance Functor m => Functor (IntBindingT t m) where
     fmap f = IBT . fmap f . unIBT
 
 -- BUG: can't reduce dependency to Applicative because of StateT's instance.
@@ -116,7 +116,7 @@ instance (Functor m, Monad m) => Applicative (IntBindingT t m) where
     x  *> y = IBT (unIBT x  *> unIBT y)
     x <*  y = IBT (unIBT x <*  unIBT y)
 
-instance (Monad m) => Monad (IntBindingT t m) where
+instance Monad m => Monad (IntBindingT t m) where
     return  = IBT . return
     m >>= f = IBT (unIBT m >>= unIBT . f)
 
@@ -128,19 +128,19 @@ instance (Functor m, MonadPlus m) => Alternative (IntBindingT t m) where
     empty   = IBT empty
     x <|> y = IBT (unIBT x <|> unIBT y)
 
-instance (MonadPlus m) => MonadPlus (IntBindingT t m) where
+instance MonadPlus m => MonadPlus (IntBindingT t m) where
     mzero       = IBT mzero
     mplus ml mr = IBT (mplus (unIBT ml) (unIBT mr))
 
-instance (Monad m) => MonadState (IntBindingState t) (IntBindingT t m) where
+instance Monad m => MonadState (IntBindingState t) (IntBindingT t m) where
     get = IBT get
     put = IBT . put
 
--- N.B., we already have (MonadLogic m) => MonadLogic (StateT s m),
+-- N.B., we already have MonadLogic m => MonadLogic (StateT s m),
 -- provided that logict is compiled against the same mtl/monads-fd
 -- we're getting StateT from. Otherwise we'll get a bunch of warnings
 -- here.
-instance (MonadLogic m) => MonadLogic (IntBindingT t m) where
+instance MonadLogic m => MonadLogic (IntBindingT t m) where
     msplit (IBT m) = IBT (coerce `liftM` msplit m)
         where
         coerce Nothing        = Nothing
@@ -162,11 +162,11 @@ runIntBindingT (IBT m) = runStateT m emptyIntBindingState
 
 -- | N.B., you should explicitly apply bindings before calling this
 -- function, or else the bindings will be lost
-evalIntBindingT :: (Monad m) => IntBindingT t m a -> m a
+evalIntBindingT :: Monad m => IntBindingT t m a -> m a
 evalIntBindingT (IBT m) = evalStateT m emptyIntBindingState
 
 
-execIntBindingT :: (Monad m) => IntBindingT t m a -> m (IntBindingState t)
+execIntBindingT :: Monad m => IntBindingT t m a -> m (IntBindingState t)
 execIntBindingT (IBT m) = execStateT m emptyIntBindingState
 
 ----------------------------------------------------------------

@@ -1,4 +1,3 @@
-
 -- For the Show (Fix f) instance
 {-# LANGUAGE UndecidableInstances #-}
 -- For 'build' and 'hmap'
